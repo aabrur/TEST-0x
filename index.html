@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>0xTanda // Phygital Fashion</title>
+    <title>0xTanda // Phygital Fashion Store</title>
 
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -15,12 +15,64 @@
     <!-- Babel Standalone -->
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 
+    <!-- Firebase SDK (Modular) -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getFirestore, collection, addDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+
+        // Expose Firebase functions to global scope for React
+        window.db = null;
+        window.auth = null;
+        window.addDoc = addDoc;
+        window.collection = collection;
+        window.serverTimestamp = serverTimestamp;
+
+        // --- KONFIGURASI FIREBASE ---
+        const firebaseConfig = window.__firebase_config ? JSON.parse(window.__firebase_config) : {
+             apiKey: "API_KEY_ANDA",
+             authDomain: "project-id.firebaseapp.com",
+             projectId: "project-id",
+             storageBucket: "project-id.appspot.com",
+             messagingSenderId: "sender-id",
+             appId: "app-id"
+        };
+
+        try {
+            const app = initializeApp(firebaseConfig);
+            const db = getFirestore(app);
+            const auth = getAuth(app);
+            
+            window.db = db;
+            window.auth = auth;
+            window.appId = window.__app_id || 'default-app-id';
+
+            // Auto Sign-In (Wajib agar Database menerima data)
+            const initAuth = async () => {
+                try {
+                    if (window.__initial_auth_token) {
+                        await signInWithCustomToken(auth, window.__initial_auth_token);
+                    } else {
+                        await signInAnonymously(auth);
+                    }
+                    console.log("System Online: Auth Connected");
+                } catch (e) {
+                    console.error("Auth Error:", e);
+                }
+            };
+            initAuth();
+
+        } catch (error) {
+            console.error("Firebase Init Error:", error);
+        }
+    </script>
+
     <!-- Google Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@400;700&family=Space+Grotesk:wght@300;400;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
 
-    <!-- Tailwind Config for Custom Colors -->
+    <!-- Tailwind Config -->
     <script>
         tailwind.config = {
             theme: {
@@ -45,28 +97,17 @@
     </script>
 
     <style>
-        /* Base Reset & Custom Scrollbar */
-        body {
-            background-color: #0E0E0E;
-            color: #F0F0F0;
-            overflow-x: hidden;
-        }
+        body { background-color: #0E0E0E; color: #F0F0F0; overflow-x: hidden; }
         ::-webkit-scrollbar { width: 6px; }
         ::-webkit-scrollbar-track { background: #0E0E0E; }
         ::-webkit-scrollbar-thumb { background: #333; }
         ::-webkit-scrollbar-thumb:hover { background: #836EF9; }
-        
         .hide-scrollbar::-webkit-scrollbar { display: none; }
         .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
-
-        /* Animation Keyframes */
         @keyframes marquee { 0% { transform: translateX(0); } 100% { transform: translateX(-50%); } }
         .animate-marquee { animation: marquee 40s linear infinite; }
-        
         @keyframes fadeInUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
         .fade-in-up { animation: fadeInUp 0.8s ease-out forwards; }
-        
-        @keyframes pulse-glow { 0%, 100% { box-shadow: 0 0 10px rgba(131, 110, 249, 0.2); } 50% { box-shadow: 0 0 20px rgba(131, 110, 249, 0.6); } }
     </style>
 </head>
 <body>
@@ -75,51 +116,28 @@
     <script type="text/babel">
         const { useState, useEffect, useRef } = React;
 
-        // --- ICON SYSTEM (Replaced dynamic CDN with Static SVG Components for Stability) ---
-        const Icon = ({ children, size = 24, className, ...props }) => (
-            <svg 
-                xmlns="http://www.w3.org/2000/svg" 
-                width={size} 
-                height={size} 
-                viewBox="0 0 24 24" 
-                fill="none" 
-                stroke="currentColor" 
-                strokeWidth="2" 
-                strokeLinecap="round" 
-                strokeLinejoin="round" 
-                className={className} 
-                {...props}
-            >
-                {children}
-            </svg>
-        );
+        // --- KONFIGURASI LINK ---
+        const GOOGLE_FORM_URL = "https://docs.google.com/forms/d/e/1FAIpQLSd.../viewform"; // Ganti dengan URL Google Form Asli
 
-        // Defined Icons (Sorted Alphabetically)
+        // --- ICONS (Static SVG) ---
+        const Icon = ({ children, size = 24, className, ...props }) => (
+            <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} {...props}>{children}</svg>
+        );
         const ArrowRight = (props) => <Icon {...props}><path d="M5 12h14" /><path d="m12 5 7 7-7 7" /></Icon>;
-        const Box = (props) => <Icon {...props}><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z" /><path d="m3.3 7 8.7 5 8.7-5" /><path d="M12 22.08V12" /></Icon>;
         const Check = (props) => <Icon {...props}><path d="M20 6 9 17l-5-5" /></Icon>;
         const ChevronLeft = (props) => <Icon {...props}><path d="m15 18-6-6 6-6" /></Icon>;
         const ChevronRight = (props) => <Icon {...props}><path d="m9 18 6-6-6-6" /></Icon>;
-        const FileText = (props) => <Icon {...props}><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z" /><polyline points="14 2 14 8 20 8" /><line x1="16" x2="8" y1="13" y2="13" /><line x1="16" x2="8" y1="17" y2="17" /><line x1="10" x2="8" y1="9" y2="9" /></Icon>;
-        const Fingerprint = (props) => <Icon {...props}><path d="M2 12C2 6.5 6.5 2 12 2a10 10 0 0 1 8 6" /><path d="M5 15.1A2 2 0 0 0 3 13.5a2.5 2.5 0 0 0-1 0" /><path d="M10 20a4 4 0 0 0-8 0" /><path d="M10 16a2.4 2.4 0 0 0-3-1" /><path d="M14 21a5 5 0 0 0-10 0" /><path d="M18.8 13.4a3.6 3.6 0 0 0-6.2-2.3" /><path d="M22 17a10 10 0 0 0-20 0" /></Icon>;
-        const Globe = (props) => <Icon {...props}><circle cx="12" cy="12" r="10" /><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20" /><path d="M2 12h20" /></Icon>;
+        const Copy = (props) => <Icon {...props}><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></Icon>;
         const Hash = (props) => <Icon {...props}><line x1="4" x2="20" y1="9" y2="9" /><line x1="4" x2="20" y1="15" y2="15" /><line x1="10" x2="8" y1="3" y2="21" /><line x1="16" x2="14" y1="3" y2="21" /></Icon>;
-        const ImageIcon = (props) => <Icon {...props}><rect width="18" height="18" x="3" y="3" rx="2" ry="2" /><circle cx="9" cy="9" r="2" /><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21" /></Icon>;
-        const Instagram = (props) => <Icon {...props}><rect width="20" height="20" x="2" y="2" rx="5" ry="5" /><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z" /><line x1="17.5" x2="17.51" y1="6.5" y2="6.5" /></Icon>;
-        const Layers = (props) => <Icon {...props}><path d="m12.83 2.18a2 2 0 0 0-1.66 0L2.6 6.08a1 1 0 0 0 0 1.83l8.58 3.91a2 2 0 0 0 1.66 0l8.58-3.9a1 1 0 0 0 0-1.83Z" /><path d="m22 17.65-9.17 4.16a2 2 0 0 1-1.66 0L2 17.65" /><path d="m22 12.65-9.17 4.16a2 2 0 0 1-1.66 0L2 12.65" /></Icon>;
         const Loader2 = (props) => <Icon {...props}><path d="M21 12a9 9 0 1 1-6.219-8.56" /></Icon>;
-        const Lock = (props) => <Icon {...props}><rect width="18" height="11" x="3" y="11" rx="2" ry="2" /><path d="M7 11V7a5 5 0 0 1 10 0v4" /></Icon>;
         const Menu = (props) => <Icon {...props}><line x1="4" x2="20" y1="12" y2="12" /><line x1="4" x2="20" y1="6" y2="6" /><line x1="4" x2="20" y1="18" y2="18" /></Icon>;
         const MoveRight = (props) => <Icon {...props}><path d="M18 8L22 12L18 16" /><path d="M2 12H22" /></Icon>;
         const QrCode = (props) => <Icon {...props}><rect width="5" height="5" x="3" y="3" rx="1" /><rect width="5" height="5" x="16" y="3" rx="1" /><rect width="5" height="5" x="3" y="16" rx="1" /><path d="M21 16h-3a2 2 0 0 0-2 2v3" /><path d="M21 21v.01" /><path d="M12 7v3a2 2 0 0 1-2 2H7" /><path d="M3 12h.01" /><path d="M12 3h.01" /><path d="M12 16v.01" /><path d="M16 12h1" /><path d="M21 12v.01" /><path d="M12 21v-1" /></Icon>;
         const Shield = (props) => <Icon {...props}><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10" /></Icon>;
         const ShoppingBag = (props) => <Icon {...props}><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z" /><path d="M3 6h18" /><path d="M16 10a4 4 0 0 1-8 0" /></Icon>;
-        const Smartphone = (props) => <Icon {...props}><rect width="14" height="20" x="5" y="2" rx="2" ry="2" /><path d="M12 18h.01" /></Icon>;
         const Ticket = (props) => <Icon {...props}><path d="M2 9a3 3 0 0 1 0 6v2a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-2a3 3 0 0 1 0-6V7a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2Z" /><path d="M13 5v2" /><path d="M13 17v2" /><path d="M13 11v2" /></Icon>;
         const Trash2 = (props) => <Icon {...props}><path d="M3 6h18" /><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" /><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" /><line x1="10" x2="10" y1="11" y2="17" /><line x1="14" x2="14" y1="11" y2="17" /></Icon>;
-        const Twitter = (props) => <Icon {...props}><path d="M22 4s-.7 2.1-2 3.4c1.6 10-9.4 17.3-12.7 12.5S1.2 13 5.3 10.2c-2.4-.1-5.1-4.4-4.1-8a9 9 0 0 1 8.2 4.4 17 17 0 0 0 7-1 5 5 0 0 1-1.3 7 5 5 0 0 1 3.2-3.3" /></Icon>;
         const Wallet = (props) => <Icon {...props}><path d="M21 12V7H5a2 2 0 0 1 0-4h14v4" /><path d="M3 5v14a2 2 0 0 0 2 2h16v-5" /><path d="M18 12a2 2 0 0 0 0 4h4v-4Z" /></Icon>;
-        const X = (props) => <Icon {...props}><path d="M18 6 6 18" /><path d="m6 6 18 12" /></Icon>;
         const Zap = (props) => <Icon {...props}><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" /></Icon>;
 
         // --- ASSETS & DATA ---
@@ -129,110 +147,36 @@
         };
 
         const PRODUCTS = [
-            {
-                id: 1,
-                name: "GENESIS TEE // 16S",
-                priceIDR: 149000,
-                type: "Heavyweight T-Shirt",
-                desc: "Spesifikasi Industrial: Cotton Combed 16s (235-250 gsm). Struktur kain kaku dan kokoh. Sablon presisi tinggi. Diproduksi terbatas hanya 14 unit untuk menjaga eksklusivitas pemegang Genesis.",
-                nftBenefit: "Sertifikat Keaslian Digital + Kartu Koleksi Fisik",
-                imgPhysical: "https://placehold.co/600x800/1a1a1a/white?text=GENESIS+TEE+16s",
-                imgNFT: "https://placehold.co/600x800/836EF9/white?text=ART+COLLECTION"
-            },
-            {
-                id: 2,
-                name: "PROTOKOL HOODIE",
-                priceIDR: 499000,
-                type: "Heavyweight Hoodie",
-                desc: "Fleece tebal anti-angin. Potongan oversized dengan drop-shoulder. Dilengkapi saku tersembunyi untuk menyimpan Kartu Akses.",
-                nftBenefit: "Sertifikat Keaslian Digital + Akses Event",
-                imgPhysical: "https://placehold.co/600x800/2a2a2a/white?text=PROTOKOL+HOODIE",
-                imgNFT: "https://placehold.co/600x800/836EF9/white?text=ART+COLLECTION"
-            },
-            {
-                id: 3,
-                name: "ENKRIPSI CAP",
-                priceIDR: 189000,
-                type: "Headwear",
-                desc: "Profil Dad Hat klasik. Bordir logo ikon 'X' di panel depan. Material twill premium yang tahan lama.",
-                nftBenefit: "Digital Membership Card",
-                imgPhysical: "https://placehold.co/600x800/000000/white?text=ENKRIPSI+CAP",
-                imgNFT: "https://placehold.co/600x800/836EF9/white?text=ART+COLLECTION"
-            }
+            { id: 1, name: "GENESIS TEE // 16S", priceIDR: 149000, type: "Heavyweight T-Shirt", desc: "Spesifikasi Industrial: Cotton Combed 16s (235-250 gsm).", nftBenefit: "Sertifikat Keaslian Digital + Kartu Koleksi Fisik", imgPhysical: "https://placehold.co/600x800/1a1a1a/white?text=GENESIS+TEE+16s", imgNFT: "https://placehold.co/600x800/836EF9/white?text=ART+COLLECTION" },
+            { id: 2, name: "PROTOKOL HOODIE", priceIDR: 499000, type: "Heavyweight Hoodie", desc: "Fleece tebal anti-angin. Potongan oversized.", nftBenefit: "Sertifikat Keaslian Digital + Akses Event", imgPhysical: "https://placehold.co/600x800/2a2a2a/white?text=PROTOKOL+HOODIE", imgNFT: "https://placehold.co/600x800/836EF9/white?text=ART+COLLECTION" },
+            { id: 3, name: "ENKRIPSI CAP", priceIDR: 189000, type: "Headwear", desc: "Profil Dad Hat klasik. Bordir logo ikon 'X'.", nftBenefit: "Digital Membership Card", imgPhysical: "https://placehold.co/600x800/000000/white?text=ENKRIPSI+CAP", imgNFT: "https://placehold.co/600x800/836EF9/white?text=ART+COLLECTION" }
         ];
 
         const ROADMAP_DATA = [
-            {
-                phase: "FASE 01",
-                year: "Q1 2026",
-                title: "GENESIS LAUNCH",
-                status: "active",
-                desc: "Peluncuran 14 Unit Micro-Batch. Pengenalan material Heavyweight 16s dan sistem verifikasi manual.",
-                img: "https://placehold.co/600x400/222/FFF?text=FOTO+PRODUKSI"
-            },
-            {
-                phase: "FASE 02",
-                year: "Q2 2026",
-                title: "COMMUNITY BUILDING",
-                status: "upcoming",
-                desc: "Aktivasi Discord privat untuk Genesis Holder. Kolaborasi visual dengan seniman lokal terpilih.",
-                img: "https://placehold.co/600x400/222/FFF?text=KOMUNITAS"
-            },
-            {
-                phase: "FASE 03",
-                year: "Q3 2026",
-                title: "EXPANSION BATCH",
-                status: "upcoming",
-                desc: "Restock varian best-seller. Eksplorasi material baru (24s / Knit) untuk lini Essential.",
-                img: "https://placehold.co/600x400/222/FFF?text=EKSPANSI+PRODUK"
-            },
-            {
-                phase: "FASE 04",
-                year: "Q4 2026",
-                title: "DIGITAL UPGRADE",
-                status: "upcoming",
-                desc: "Integrasi fitur Connect Wallet pada website untuk memudahkan proses klaim sertifikat.",
-                img: "https://placehold.co/600x400/222/FFF?text=WEBSITE+V2"
-            },
-            {
-                phase: "FASE 05",
-                year: "2027",
-                title: "WOMENSWEAR",
-                status: "upcoming",
-                desc: "Ekspansi ke segmen pakaian wanita dengan potongan crop & baby tee yang terstruktur.",
-                img: "https://placehold.co/600x400/222/FFF?text=WOMENSWEAR"
-            }
+            { phase: "FASE 01", year: "Q1 2026", title: "GENESIS LAUNCH", status: "active", desc: "Peluncuran 14 Unit Micro-Batch.", img: "https://placehold.co/600x400/222/FFF?text=FOTO+PRODUKSI" },
+            { phase: "FASE 02", year: "Q2 2026", title: "COMMUNITY BUILDING", status: "upcoming", desc: "Aktivasi Discord privat.", img: "https://placehold.co/600x400/222/FFF?text=KOMUNITAS" },
+            { phase: "FASE 03", year: "Q3 2026", title: "EXPANSION BATCH", status: "upcoming", desc: "Restock varian best-seller.", img: "https://placehold.co/600x400/222/FFF?text=EKSPANSI+PRODUK" },
+            { phase: "FASE 04", year: "Q4 2026", title: "DIGITAL UPGRADE", status: "upcoming", desc: "Integrasi fitur Connect Wallet.", img: "https://placehold.co/600x400/222/FFF?text=WEBSITE+V2" },
+            { phase: "FASE 05", year: "2027", title: "WOMENSWEAR", status: "upcoming", desc: "Ekspansi ke segmen pakaian wanita.", img: "https://placehold.co/600x400/222/FFF?text=WOMENSWEAR" }
         ];
 
         // --- COMPONENTS ---
 
-        const VerticalLine = ({ className = "" }) => (
-            <div className={`w-1.5 h-12 bg-brand-purple rounded-full inline-block ${className}`}></div>
-        );
+        const VerticalLine = ({ className = "" }) => <div className={`w-1.5 h-12 bg-brand-purple rounded-full inline-block ${className}`}></div>;
 
         const CustomCursor = () => {
             const [position, setPosition] = useState({ x: 0, y: 0 });
             const [clicked, setClicked] = useState(false);
-
             useEffect(() => {
                 const mMove = (el) => setPosition({ x: el.clientX, y: el.clientY });
                 const mDown = () => setClicked(true);
                 const mUp = () => setClicked(false);
-                document.addEventListener("mousemove", mMove);
-                document.addEventListener("mousedown", mDown);
-                document.addEventListener("mouseup", mUp);
-                return () => {
-                    document.removeEventListener("mousemove", mMove);
-                    document.removeEventListener("mousedown", mDown);
-                    document.removeEventListener("mouseup", mUp);
-                };
+                document.addEventListener("mousemove", mMove); document.addEventListener("mousedown", mDown); document.addEventListener("mouseup", mUp);
+                return () => { document.removeEventListener("mousemove", mMove); document.removeEventListener("mousedown", mDown); document.removeEventListener("mouseup", mUp); };
             }, []);
-
             return (
                 <div className="fixed top-0 left-0 pointer-events-none z-[9999] hidden md:flex items-center justify-center transition-transform duration-75 ease-out" style={{ transform: `translate(${position.x}px, ${position.y}px)`, left: '-16px', top: '-16px' }}>
-                    <div className={`w-8 h-8 border border-brand-purple rounded-full flex items-center justify-center transition-all duration-200 ${clicked ? 'scale-75 bg-brand-purple/20' : 'scale-100'}`}>
-                        <div className="w-1 h-1 bg-brand-purple rounded-full"></div>
-                    </div>
+                    <div className={`w-8 h-8 border border-brand-purple rounded-full flex items-center justify-center transition-all duration-200 ${clicked ? 'scale-75 bg-brand-purple/20' : 'scale-100'}`}><div className="w-1 h-1 bg-brand-purple rounded-full"></div></div>
                 </div>
             );
         };
@@ -240,12 +184,12 @@
         const Marquee = () => (
             <div className="bg-brand-purple text-black font-sans text-xs py-1 overflow-hidden whitespace-nowrap border-b border-brand-purple select-none z-50 relative">
                 <div className="animate-marquee inline-block font-bold tracking-wider">
-                    // 0xTanda // GENESIS BATCH: LIVE // ONE ENTITY // DUAL EXISTENCE // PHYGITAL STREETWEAR INDONESIA // 0xTanda // LIMITED 14 UNITS // 0xTanda // GENESIS BATCH: LIVE // ONE ENTITY // DUAL EXISTENCE //
+                    // 0xTanda // GENESIS BATCH: LIVE // ONE ENTITY // DUAL EXISTENCE // PHYGITAL STREETWEAR INDONESIA // 0xTanda // LIMITED 14 UNITS //
                 </div>
             </div>
         );
 
-        const Navbar = ({ setPage, cartCount, wallet, connectWallet }) => {
+        const Navbar = ({ setPage, cartCount }) => {
             const [menuOpen, setMenuOpen] = useState(false);
             return (
                 <nav className="fixed top-8 left-0 w-full z-40 px-6 mix-blend-difference text-brand-white">
@@ -260,9 +204,6 @@
                             <button onClick={() => setPage('about')} className="hover:text-brand-purple hover:underline decoration-brand-purple underline-offset-4 tracking-wider">TENTANG KAMI</button>
                         </div>
                         <div className="flex items-center gap-6">
-                            <button onClick={connectWallet} className={`hidden md:flex items-center gap-2 border px-4 py-1 text-xs font-mono transition-all ${wallet ? 'border-brand-purple text-brand-purple bg-brand-purple/10' : 'border-white/20 hover:border-white'}`}>
-                                <Wallet size={14} className="mr-2" />{wallet ? '0x...8821' : 'CONNECT'}
-                            </button>
                             <div className="relative cursor-pointer hover:text-brand-purple" onClick={() => setPage('checkout')}>
                                 <ShoppingBag size={20} />
                                 {cartCount > 0 && <span className="absolute -top-2 -right-2 bg-brand-purple text-black text-[10px] w-4 h-4 flex items-center justify-center font-bold rounded-sm">{cartCount}</span>}
@@ -287,101 +228,35 @@
 
         const RoadmapSlider = () => {
             const sliderRef = useRef(null);
-            const [isDown, setIsDown] = useState(false);
-            const [startX, setStartX] = useState(0);
-            const [scrollLeft, setScrollLeft] = useState(0);
-
-            const handleMouseDown = (e) => {
-                setIsDown(true);
-                setStartX(e.pageX - sliderRef.current.offsetLeft);
-                setScrollLeft(sliderRef.current.scrollLeft);
-            };
-            const handleMouseLeave = () => setIsDown(false);
-            const handleMouseUp = () => setIsDown(false);
-            const handleMouseMove = (e) => {
-                if (!isDown) return;
-                e.preventDefault();
-                const x = e.pageX - sliderRef.current.offsetLeft;
-                const walk = (x - startX) * 2;
-                sliderRef.current.scrollLeft = scrollLeft - walk;
-            };
-
             const scroll = (direction) => {
                 if(sliderRef.current) {
-                    const { current } = sliderRef;
                     const scrollAmount = 350; 
-                    if (direction === 'left') {
-                        current.scrollBy({ left: -scrollAmount, behavior: 'smooth' });
-                    } else {
-                        current.scrollBy({ left: scrollAmount, behavior: 'smooth' });
-                    }
+                    direction === 'left' ? sliderRef.current.scrollBy({ left: -scrollAmount, behavior: 'smooth' }) : sliderRef.current.scrollBy({ left: scrollAmount, behavior: 'smooth' });
                 }
             };
-
             return (
                 <div className="relative w-full">
                     <div className="flex items-center justify-between mb-8 px-6 md:px-0 max-w-5xl mx-auto">
-                        <div className="flex items-center gap-3">
-                            <VerticalLine className="h-8" />
-                            <h2 className="text-2xl font-sans font-bold uppercase">Pencapaian & Peta Jalan</h2>
-                        </div>
-                        <div className="text-xs font-mono text-brand-gray flex items-center gap-2">
-                            GESER / SWIPE <MoveRight size={14} className="animate-pulse"/>
-                        </div>
+                        <div className="flex items-center gap-3"><VerticalLine className="h-8" /><h2 className="text-2xl font-sans font-bold uppercase">Pencapaian & Peta Jalan</h2></div>
+                        <div className="text-xs font-mono text-brand-gray flex items-center gap-2">GESER / SWIPE <MoveRight size={14} className="animate-pulse"/></div>
                     </div>
-
-                    <div 
-                        ref={sliderRef}
-                        className="flex overflow-x-auto gap-6 px-6 md:px-20 pb-4 hide-scrollbar cursor-grab active:cursor-grabbing select-none"
-                        onMouseDown={handleMouseDown}
-                        onMouseLeave={handleMouseLeave}
-                        onMouseUp={handleMouseUp}
-                        onMouseMove={handleMouseMove}
-                    >
+                    <div ref={sliderRef} className="flex overflow-x-auto gap-6 px-6 md:px-20 pb-4 hide-scrollbar cursor-grab active:cursor-grabbing select-none">
                         {ROADMAP_DATA.map((item, idx) => (
-                            <div 
-                                key={idx} 
-                                className={`min-w-[300px] md:min-w-[350px] border ${item.status === 'active' ? 'border-brand-purple bg-[#1a1a1a]' : 'border-[#333] bg-[#121212]'} flex flex-col h-[420px] transition-all hover:border-white group`}
-                            >
+                            <div key={idx} className={`min-w-[300px] md:min-w-[350px] border ${item.status === 'active' ? 'border-brand-purple bg-[#1a1a1a]' : 'border-[#333] bg-[#121212]'} flex flex-col h-[420px] transition-all hover:border-white group`}>
                                 <div className="h-[200px] bg-black border-b border-[#333] relative overflow-hidden">
-                                    <img src={item.img} alt={item.title} className="w-full h-full object-cover opacity-70 group-hover:opacity-100 group-hover:scale-105 transition-all duration-500 grayscale group-hover:grayscale-0" />
-                                    <div className="absolute top-4 left-4">
-                                        <span className={`font-mono text-xs px-2 py-1 font-bold ${item.status === 'active' ? 'bg-brand-purple text-black' : 'bg-black/80 text-brand-gray border border-[#333]'}`}>
-                                            {item.phase}
-                                        </span>
-                                    </div>
+                                    <img src={item.img} alt={item.title} className="w-full h-full object-cover opacity-70 group-hover:opacity-100 transition-all duration-500 grayscale group-hover:grayscale-0" />
+                                    <div className="absolute top-4 left-4"><span className={`font-mono text-xs px-2 py-1 font-bold ${item.status === 'active' ? 'bg-brand-purple text-black' : 'bg-black/80 text-brand-gray border border-[#333]'}`}>{item.phase}</span></div>
                                 </div>
-
                                 <div className="p-6 flex flex-col justify-between flex-1">
-                                    <div>
-                                        <span className="font-mono text-xs text-brand-gray block mb-2">{item.year}</span>
-                                        <h3 className={`text-xl font-sans font-bold mb-3 ${item.status === 'active' ? 'text-brand-white' : 'text-brand-gray'}`}>
-                                            {item.title}
-                                        </h3>
-                                        <p className="text-sm font-mono text-brand-gray leading-relaxed">
-                                            {item.desc}
-                                        </p>
-                                    </div>
-                                    
-                                    {item.status === 'active' && (
-                                        <div className="flex items-center gap-2 text-brand-purple text-xs font-bold animate-pulse mt-4 border-t border-[#333] pt-4">
-                                            <div className="w-2 h-2 bg-brand-purple rounded-full"></div>
-                                            SEDANG BERJALAN
-                                        </div>
-                                    )}
+                                    <div><span className="font-mono text-xs text-brand-gray block mb-2">{item.year}</span><h3 className={`text-xl font-sans font-bold mb-3 ${item.status === 'active' ? 'text-brand-white' : 'text-brand-gray'}`}>{item.title}</h3><p className="text-sm font-mono text-brand-gray leading-relaxed">{item.desc}</p></div>
+                                    {item.status === 'active' && <div className="flex items-center gap-2 text-brand-purple text-xs font-bold animate-pulse mt-4 border-t border-[#333] pt-4"><div className="w-2 h-2 bg-brand-purple rounded-full"></div>SEDANG BERJALAN</div>}
                                 </div>
                             </div>
                         ))}
-                        <div className="min-w-[50px]"></div>
                     </div>
-
                     <div className="flex items-center justify-center gap-4 mt-8 px-6">
-                         <button onClick={() => scroll('left')} className="w-16 h-16 border border-[#333] flex items-center justify-center hover:border-brand-purple hover:bg-brand-purple/10 hover:text-brand-purple transition-all rounded-full bg-brand-black group" aria-label="Geser Kiri">
-                            <ChevronLeft size={32} className="text-brand-gray group-hover:text-brand-purple transition-colors" />
-                        </button>
-                        <button onClick={() => scroll('right')} className="w-16 h-16 border border-[#333] flex items-center justify-center hover:border-brand-purple hover:bg-brand-purple/10 hover:text-brand-purple transition-all rounded-full bg-brand-black group" aria-label="Geser Kanan">
-                            <ChevronRight size={32} className="text-brand-gray group-hover:text-brand-purple transition-colors" />
-                        </button>
+                         <button onClick={() => scroll('left')} className="w-16 h-16 border border-[#333] flex items-center justify-center hover:border-brand-purple hover:text-brand-purple transition-all rounded-full bg-brand-black"><ChevronLeft size={32}/></button>
+                         <button onClick={() => scroll('right')} className="w-16 h-16 border border-[#333] flex items-center justify-center hover:border-brand-purple hover:text-brand-purple transition-all rounded-full bg-brand-black"><ChevronRight size={32}/></button>
                     </div>
                 </div>
             );
@@ -395,26 +270,10 @@
                 </div>
                 <div className="z-10 text-center flex flex-col items-center gap-6 px-4 fade-in-up">
                     <VerticalLine className="mb-4" />
-                    
-                    <div className="font-sans text-brand-purple text-xs tracking-[0.5em] uppercase font-bold">
-                        ONE ENTITY // DUAL EXISTENCE
-                    </div>
-                    
-                    <div className="mb-4 hover:scale-105 transition-transform duration-500">
-                        <img src={ASSETS.logoMain} alt="0xTanda Main Logo" className="h-32 md:h-56 object-contain filter drop-shadow-[0_0_15px_rgba(131,110,249,0.3)]" />
-                    </div>
-                    
-                    <h1 className="sr-only"><span className="font-sans">0x</span><span className="font-deco">Tanda</span></h1>
-
-                    <p className="font-mono text-brand-gray max-w-md text-xs md:text-sm mb-10 leading-relaxed tracking-wide">
-                        GENESIS BATCH: 14 UNIT.<br/>
-                        KUALITAS FISIK HEAVYWEIGHT.<br/>
-                        SERTIFIKASI SENI DIGITAL.
-                    </p>
-                    
-                    <button onClick={() => setPage('shop')} className="group px-8 py-4 bg-transparent border border-brand-white text-brand-white font-mono text-sm hover:bg-brand-purple hover:border-brand-purple hover:text-black transition-all duration-300 flex items-center gap-2">
-                        LIHAT KOLEKSI <ArrowRight size={16} className="group-hover:translate-x-1 transition-transform"/>
-                    </button>
+                    <div className="font-sans text-brand-purple text-xs tracking-[0.5em] uppercase font-bold">ONE ENTITY // DUAL EXISTENCE</div>
+                    <div className="mb-4 hover:scale-105 transition-transform duration-500"><img src={ASSETS.logoMain} alt="0xTanda Main Logo" className="h-32 md:h-56 object-contain filter drop-shadow-[0_0_15px_rgba(131,110,249,0.3)]" /></div>
+                    <p className="font-mono text-brand-gray max-w-md text-xs md:text-sm mb-10 leading-relaxed tracking-wide">GENESIS BATCH: 14 UNIT.<br/>KUALITAS FISIK HEAVYWEIGHT.<br/>SERTIFIKASI SENI DIGITAL.</p>
+                    <button onClick={() => setPage('shop')} className="group px-8 py-4 bg-transparent border border-brand-white text-brand-white font-mono text-sm hover:bg-brand-purple hover:border-brand-purple hover:text-black transition-all duration-300 flex items-center gap-2">LIHAT KOLEKSI <ArrowRight size={16} className="group-hover:translate-x-1 transition-transform"/></button>
                 </div>
             </div>
         );
@@ -423,12 +282,7 @@
             <div className="min-h-screen bg-brand-black pt-28 pb-12 px-6">
                 <div className="max-w-7xl mx-auto">
                     <div className="flex justify-between items-end mb-12 border-b border-[#333] pb-4">
-                        <div className="flex items-center gap-4">
-                            <VerticalLine className="h-10 md:h-12 w-2" />
-                            <h2 className="text-3xl md:text-5xl font-bold text-brand-white tracking-tight font-sans">
-                                GENESIS <span className="text-brand-purple text-sm font-mono ml-2 align-top">BATCH 001</span>
-                            </h2>
-                        </div>
+                        <div className="flex items-center gap-4"><VerticalLine className="h-10 md:h-12 w-2" /><h2 className="text-3xl md:text-5xl font-bold text-brand-white tracking-tight font-sans">GENESIS <span className="text-brand-purple text-sm font-mono ml-2 align-top">BATCH 001</span></h2></div>
                         <div className="font-mono text-xs text-brand-gray hidden md:block">STATUS: <span className="text-brand-green">TERSEDIA</span></div>
                     </div>
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
@@ -440,18 +294,9 @@
                                     <div className="absolute top-4 right-4 bg-black/80 backdrop-blur-md border border-brand-purple text-brand-purple text-[10px] font-mono px-2 py-1 flex items-center gap-1"><Zap size={8} fill="currentColor"/> DIGITAL CARD</div>
                                 </div>
                                 <div className="p-4">
-                                    <div className="flex justify-between items-start mb-2">
-                                        <h3 className="font-bold text-brand-white text-lg font-sans tracking-tighter">{product.name}</h3>
-                                        <div className="text-right">
-                                            <div className="text-brand-white font-bold font-mono text-sm">Rp {product.priceIDR.toLocaleString()}</div>
-                                            <div className="text-brand-gray text-[10px]">IDR Only</div>
-                                        </div>
-                                    </div>
+                                    <div className="flex justify-between items-start mb-2"><h3 className="font-bold text-brand-white text-lg font-sans tracking-tighter">{product.name}</h3><div className="text-right"><div className="text-brand-white font-bold font-mono text-sm">Rp {product.priceIDR.toLocaleString()}</div></div></div>
                                     <div className="w-full h-[1px] bg-[#333] my-3 group-hover:bg-brand-purple transition-colors"></div>
-                                    <div className="flex justify-between items-center text-xs font-mono text-brand-gray">
-                                        <span>{product.type}</span>
-                                        <span className="flex items-center gap-1 group-hover:text-brand-white">DETAIL <ChevronRight size={12}/></span>
-                                    </div>
+                                    <div className="flex justify-between items-center text-xs font-mono text-brand-gray"><span>{product.type}</span><span className="flex items-center gap-1 group-hover:text-brand-white">DETAIL <ArrowRight size={12}/></span></div>
                                 </div>
                             </div>
                         ))}
@@ -459,133 +304,6 @@
                 </div>
             </div>
         );
-
-        const AboutPage = () => {
-            return (
-                <div className="bg-brand-black text-brand-white pt-28 pb-12">
-                    <div className="max-w-4xl mx-auto px-6 mb-20 text-center">
-                        <div className="flex justify-center mb-8">
-                             <img src={ASSETS.logoMain} alt="0xTanda Litepaper Logo" className="h-24 md:h-32 object-contain" />
-                        </div>
-                        <div className="inline-block border border-brand-purple bg-brand-purple/10 px-4 py-1 mb-4">
-                            <span className="font-mono text-xs text-brand-purple tracking-widest uppercase">BRAND MANIFESTO // V1.0</span>
-                        </div>
-                        <h1 className="text-4xl md:text-6xl font-sans font-black tracking-tighter mb-6 uppercase">
-                            Mendefinisikan Ulang<br/><span className="text-brand-gray">Kepemilikan.</span>
-                        </h1>
-                        <p className="text-brand-gray font-mono max-w-2xl mx-auto text-sm leading-relaxed">
-                            Kami tidak hanya menjual pakaian. Kami membangun arsip.<br/>
-                            Di era di mana karya seni mudah disalin, 0xTanda menghadirkan keaslian yang terverifikasi.
-                        </p>
-                    </div>
-
-                    <div className="max-w-5xl mx-auto px-6 grid grid-cols-1 md:grid-cols-12 gap-12 mb-24">
-                        <div className="md:col-span-3 hidden md:block">
-                            <div className="sticky top-32 border-l border-[#333] pl-6 space-y-4">
-                                <a href="#intro" className="block text-sm font-mono text-brand-purple hover:text-white">01. PENDAHULUAN</a>
-                                <a href="#problem" className="block text-sm font-mono text-brand-gray hover:text-white">02. MASALAH</a>
-                                <a href="#solution" className="block text-sm font-mono text-brand-gray hover:text-white">03. TIGA PILAR</a>
-                                <a href="#roadmap-section" className="block text-sm font-mono text-brand-gray hover:text-white">04. PETA JALAN</a>
-                            </div>
-                        </div>
-
-                        <div className="md:col-span-9 space-y-20">
-                            <section id="intro">
-                                <div className="flex items-center gap-3 mb-6">
-                                    <VerticalLine className="h-8" />
-                                    <h2 className="text-2xl font-sans font-bold uppercase">Latar Belakang</h2>
-                                </div>
-                                <p className="text-brand-gray leading-relaxed font-mono text-sm mb-4">
-                                    Industri mode Indonesia sedang berada di persimpangan jalan. Pasar dibanjiri dengan produk massal yang seragam dan rapuh (fast fashion). Di sisi lain, apresiasi terhadap karya orisinal sering terbentur oleh masalah pembajakan.
-                                </p>
-                                <p className="text-brand-gray leading-relaxed font-mono text-sm">
-                                    <strong>0xTanda</strong> lahir dari kegelisahan ini. Kami percaya bahwa sebuah produk fashion harus memiliki "jiwa"—sebuah tanda otentik yang tidak bisa diduplikasi. Kami tidak menjual teknologi, kami menggunakan teknologi untuk melindungi nilai seni dari produk kami.
-                                </p>
-                            </section>
-
-                            <section id="problem">
-                                <div className="flex items-center gap-3 mb-6">
-                                    <VerticalLine className="h-8" />
-                                    <h2 className="text-2xl font-sans font-bold uppercase">Masalah Utama</h2>
-                                </div>
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                    <div className="bg-[#121212] p-6 border border-[#333]">
-                                        <h3 className="text-brand-white font-bold mb-2 flex items-center gap-2"><Trash2 size={16} className="text-red-500"/> Penurunan Kualitas</h3>
-                                        <p className="text-xs text-brand-gray">Dominasi bahan murah yang tipis membuat pakaian cepat rusak dan kehilangan bentuk. Konsumen kehilangan akses ke pakaian berstruktur kokoh.</p>
-                                    </div>
-                                    <div className="bg-[#121212] p-6 border border-[#333]">
-                                        <h3 className="text-brand-white font-bold mb-2 flex items-center gap-2"><Shield size={16} className="text-red-500"/> Kepemilikan Semu</h3>
-                                        <p className="text-xs text-brand-gray">Saat Anda membeli pakaian biasa, Anda hanya memiliki kainnya. Anda tidak memiliki bukti otentik atas desain atau hak eksklusif sebagai kolektor.</p>
-                                    </div>
-                                </div>
-                            </section>
-
-                            <section id="solution">
-                                <div className="flex items-center gap-3 mb-6">
-                                    <VerticalLine className="h-8" />
-                                    <h2 className="text-2xl font-sans font-bold uppercase">Tiga Pilar 0xTanda</h2>
-                                </div>
-                                <p className="text-brand-gray leading-relaxed font-mono text-sm mb-8">
-                                    Kami membangun ekosistem <strong>Phygital (Physical + Digital)</strong> yang seimbang:
-                                </p>
-                                
-                                <div className="space-y-8">
-                                    <div className="flex gap-6">
-                                        <div className="hidden md:flex flex-col items-center">
-                                            <div className="w-10 h-10 border border-brand-purple bg-brand-purple/10 flex items-center justify-center font-bold text-brand-purple">A</div>
-                                            <div className="h-full w-[1px] bg-[#333] my-2"></div>
-                                        </div>
-                                        <div>
-                                            <h3 className="text-xl font-bold text-brand-white mb-2">The Canvas: Eksplorasi Material</h3>
-                                            <p className="text-brand-gray text-sm mb-2">
-                                                Fokus kami adalah kualitas sandang. Kami tidak terpaku pada satu jenis kain, namun selalu mencari material yang menawarkan <strong>struktur, durabilitas, dan karakter</strong>. 
-                                                Saat ini kami memulai dengan Heavyweight 16s, namun kami akan terus bereksperimen dengan tekstil terbaik untuk setiap rilis.
-                                            </p>
-                                        </div>
-                                    </div>
-
-                                    <div className="flex gap-6">
-                                        <div className="hidden md:flex flex-col items-center">
-                                            <div className="w-10 h-10 border border-brand-purple bg-brand-purple/10 flex items-center justify-center font-bold text-brand-purple">B</div>
-                                            <div className="h-full w-[1px] bg-[#333] my-2"></div>
-                                        </div>
-                                        <div>
-                                            <h3 className="text-xl font-bold text-brand-white mb-2">The Artifact: Kartu Koleksi Fisik</h3>
-                                            <p className="text-brand-gray text-sm mb-2">
-                                                Setiap produk disertai kartu fisik eksklusif. Ini bukan sekadar kertas, melainkan "artefak" yang membuktikan Anda adalah pemilik sah dari edisi tersebut.
-                                                Kartu ini berisi kode unik yang menghubungkan dunia fisik dengan pencatatan digital.
-                                            </p>
-                                        </div>
-                                    </div>
-
-                                    <div className="flex gap-6">
-                                        <div className="hidden md:flex flex-col items-center">
-                                            <div className="w-10 h-10 border border-brand-purple bg-brand-purple/10 flex items-center justify-center font-bold text-brand-purple">C</div>
-                                        </div>
-                                        <div>
-                                            <h3 className="text-xl font-bold text-brand-white mb-2">The Rights: Sertifikat Digital</h3>
-                                            <p className="text-brand-gray text-sm mb-2">
-                                                Kami memanfaatkan teknologi Blockchain (Jaringan Terdesentralisasi) untuk menerbitkan sertifikat keaslian yang tidak bisa dipalsukan.
-                                                Ini memberikan Anda Hak Kepemilikan penuh atas aset seni yang Anda beli. Baju bisa rusak, tapi sertifikat ini abadi.
-                                            </p>
-                                        </div>
-                                    </div>
-                                </div>
-                            </section>
-                        </div>
-                    </div>
-                    
-                    <section id="roadmap-section" className="border-t border-[#333] pt-12 mb-20">
-                       <RoadmapSlider />
-                    </section>
-
-                    <div className="text-center pt-12 pb-8 border-t border-[#333]">
-                        <p className="font-sans text-3xl md:text-4xl text-brand-white mb-4 font-bold tracking-tighter">"ONE ENTITY // DUAL EXISTENCE"</p>
-                        <p className="font-mono text-xs text-brand-gray">JAKARTA, INDONESIA // EST. 2026</p>
-                    </div>
-                </div>
-            );
-        };
 
         const ProductDetail = ({ product, addToCart, setPage }) => {
             const [activeImg, setActiveImg] = useState('physical');
@@ -603,32 +321,13 @@
                                 </div>
                             </div>
                             <div className="flex flex-col justify-center text-brand-white">
-                                <div className="flex items-center gap-4 mb-2">
-                                     <VerticalLine className="h-10 w-1.5" />
-                                     <h1 className="text-4xl md:text-6xl font-sans font-black tracking-tighter uppercase">{product.name}</h1>
-                                </div>
+                                <div className="flex items-center gap-4 mb-2"><VerticalLine className="h-10 w-1.5" /><h1 className="text-4xl md:text-6xl font-sans font-black tracking-tighter uppercase">{product.name}</h1></div>
                                 <div className="flex gap-4 font-mono text-sm text-brand-purple mb-8"><span className="border border-brand-purple px-2 py-1">GENESIS BATCH</span><span className="border border-brand-purple px-2 py-1">SISA STOK: 4</span></div>
-                                
                                 <div className="font-mono text-sm text-brand-gray mb-8 space-y-6 leading-relaxed">
-                                    <div>
-                                        <strong className="text-brand-white block mb-1">DESKRIPSI FISIK</strong>
-                                        {product.desc}
-                                    </div>
-                                    <div className="border-l-2 border-brand-purple pl-4">
-                                        <strong className="text-brand-purple block mb-1">MANFAAT KOLEKTOR</strong>
-                                        {product.nftBenefit}
-                                    </div>
+                                    <div><strong className="text-brand-white block mb-1">DESKRIPSI FISIK</strong>{product.desc}</div>
+                                    <div className="border-l-2 border-brand-purple pl-4"><strong className="text-brand-purple block mb-1">MANFAAT KOLEKTOR</strong>{product.nftBenefit}</div>
                                 </div>
-
-                                <div className="space-y-4">
-                                    <button onClick={() => addToCart(product)} className="w-full py-4 bg-brand-purple text-black font-bold font-mono text-lg hover:bg-[#6f5bd6] transition-colors flex items-center justify-center gap-2">
-                                        BELI SEKARANG (Rp {product.priceIDR.toLocaleString()})
-                                    </button>
-                                </div>
-                                <div className="mt-6 text-xs text-brand-gray font-mono flex gap-4">
-                                    <span className="flex items-center gap-1"><Check size={10} className="text-brand-green"/> Kartu Akses Fisik</span>
-                                    <span className="flex items-center gap-1"><Check size={10} className="text-brand-green"/> Sertifikat Digital</span>
-                                </div>
+                                <button onClick={() => addToCart(product)} className="w-full py-4 bg-brand-purple text-black font-bold font-mono text-lg hover:bg-[#6f5bd6] transition-colors flex items-center justify-center gap-2">BELI SEKARANG (Rp {product.priceIDR.toLocaleString()})</button>
                             </div>
                         </div>
                     </div>
@@ -636,37 +335,45 @@
             );
         };
 
-        const CheckoutPage = ({ cart, setCart, setPage, wallet, connectWallet }) => {
+        const CheckoutPage = ({ cart, setCart, setPage }) => {
             const [step, setStep] = useState(1);
             const [formData, setFormData] = useState({ name: '', address: '', city: '', phone: '', email: '' });
-            const [paymentMethod, setPaymentMethod] = useState('idr');
             const [isProcessing, setIsProcessing] = useState(false);
+            const [successData, setSuccessData] = useState(null);
             const totalIDR = cart.reduce((acc, item) => acc + item.priceIDR, 0);
 
-            const removeItem = (index) => {
-                const newCart = [...cart];
-                newCart.splice(index, 1);
-                setCart(newCart);
-            };
-
-            const handleProcessPayment = () => {
+            const handleConfirmPayment = async () => {
                 setIsProcessing(true);
-                setTimeout(() => {
-                    setIsProcessing(false);
-                    setStep(4);
-                    setCart([]); 
-                }, 3500);
+                const trackingId = "GEN-" + Math.floor(100000 + Math.random() * 900000);
+                const orderData = {
+                    ...formData,
+                    items: cart.map(item => item.name),
+                    total: totalIDR,
+                    status: 'PAID',
+                    trackingId: trackingId,
+                    timestamp: window.serverTimestamp ? window.serverTimestamp() : new Date(),
+                    batch: "GENESIS-001"
+                };
+
+                try {
+                    if (window.db && window.auth && window.auth.currentUser) {
+                        const colRef = window.collection(window.db, 'artifacts', window.appId, 'public', 'data', 'orders');
+                        await window.addDoc(colRef, orderData);
+                        console.log("Order saved to DB");
+                    } else {
+                        console.warn("DB not ready, simulating save.");
+                    }
+                    // Simulate delay
+                    setTimeout(() => { setIsProcessing(false); setSuccessData(orderData); setStep(4); setCart([]); }, 2000);
+                } catch (error) {
+                    console.error("Error saving order:", error);
+                    alert("Koneksi DB Error. Order diproses lokal.");
+                    setIsProcessing(false); setSuccessData(orderData); setStep(4); setCart([]);
+                }
             };
 
-            if (cart.length === 0 && step === 1) {
-                return (
-                    <div className="min-h-screen bg-brand-black flex flex-col items-center justify-center p-6 text-center pt-24">
-                        <div className="w-20 h-20 border border-[#333] flex items-center justify-center rounded-full mb-6"><ShoppingBag size={32} className="text-brand-gray" /></div>
-                        <h2 className="text-brand-white font-bold text-2xl font-mono mb-2">KERANJANG KOSONG</h2>
-                        <button onClick={() => setPage('shop')} className="px-8 py-3 bg-brand-white text-black font-mono font-bold hover:bg-brand-purple transition-colors">LIHAT KOLEKSI</button>
-                    </div>
-                );
-            }
+            const copyToClipboard = (text) => { navigator.clipboard.writeText(text); alert("Disalin: " + text); }
+            if (cart.length === 0 && step === 1) return (<div className="min-h-screen bg-brand-black flex flex-col items-center justify-center p-6 text-center pt-24"><div className="w-20 h-20 border border-[#333] flex items-center justify-center rounded-full mb-6"><ShoppingBag size={32} className="text-brand-gray" /></div><h2 className="text-brand-white font-bold text-2xl font-mono mb-2">KERANJANG KOSONG</h2><button onClick={() => setPage('shop')} className="px-8 py-3 bg-brand-white text-black font-mono font-bold hover:bg-brand-purple transition-colors">LIHAT KOLEKSI</button></div>);
 
             return (
                 <div className="min-h-screen bg-brand-black pt-28 pb-12 px-6 font-mono text-brand-white">
@@ -677,173 +384,83 @@
                             <span className={step >= 3 ? "text-brand-purple" : ""}>03 PEMBAYARAN</span>
                             <span className={step >= 4 ? "text-brand-green" : ""}>04 SELESAI</span>
                         </div>
-
-                        {step === 1 && (
-                            <div className="animate-fade-in">
-                                <div className="flex items-center gap-4 mb-8">
-                                    <VerticalLine className="h-8" />
-                                    <h1 className="text-3xl font-bold font-sans uppercase">Ringkasan Pesanan</h1>
-                                </div>
-                                <div className="space-y-6 mb-8">
-                                    {cart.map((item, idx) => (
-                                        <div key={idx} className="flex gap-4 border border-[#333] p-4 bg-[#121212] items-center">
-                                            <img src={item.imgPhysical} alt={item.name} className="w-20 h-20 object-cover border border-[#333]" />
-                                            <div className="flex-1">
-                                                <h3 className="font-bold text-sm md:text-lg text-brand-white">{item.name}</h3>
-                                                <div className="text-brand-purple text-xs flex items-center gap-1"><Zap size={10}/> Termasuk Digital Art</div>
-                                            </div>
-                                            <div className="text-right">
-                                                <div className="font-bold text-brand-white">Rp {item.priceIDR.toLocaleString()}</div>
-                                                <button onClick={() => removeItem(idx)} className="text-brand-gray mt-2 hover:text-red-500"><Trash2 size={16}/></button>
-                                            </div>
-                                        </div>
-                                    ))}
-                                </div>
-                                <div className="flex justify-between items-center border-t border-[#333] pt-6 mb-8">
-                                    <span className="text-brand-gray">TOTAL</span>
-                                    <div className="text-right"><div className="text-2xl font-bold text-brand-purple">Rp {totalIDR.toLocaleString()}</div></div>
-                                </div>
-                                <button onClick={() => setStep(2)} className="w-full bg-brand-white text-black py-4 font-bold hover:bg-brand-purple transition-colors tracking-widest">LANJUT PENGIRIMAN</button>
-                            </div>
-                        )}
-
-                        {step === 2 && (
-                            <div className="animate-fade-in">
-                                <div className="flex items-center gap-4 mb-8">
-                                    <VerticalLine className="h-8" />
-                                    <h1 className="text-3xl font-bold font-sans uppercase">Data Pengiriman</h1>
-                                </div>
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-                                    <div className="space-y-2"><label className="text-xs text-brand-gray">NAMA PENERIMA</label><input type="text" className="w-full bg-[#121212] border border-[#333] p-3 text-brand-white focus:border-brand-purple outline-none" value={formData.name} onChange={(e) => setFormData({...formData, name: e.target.value})} placeholder="Nama Lengkap" /></div>
-                                    <div className="space-y-2"><label className="text-xs text-brand-gray">EMAIL</label><input type="email" className="w-full bg-[#121212] border border-[#333] p-3 text-brand-white focus:border-brand-purple outline-none" value={formData.email} onChange={(e) => setFormData({...formData, email: e.target.value})} /></div>
-                                    <div className="space-y-2 md:col-span-2"><label className="text-xs text-brand-gray">ALAMAT LENGKAP</label><input type="text" className="w-full bg-[#121212] border border-[#333] p-3 text-brand-white focus:border-brand-purple outline-none" value={formData.address} onChange={(e) => setFormData({...formData, address: e.target.value})} /></div>
-                                </div>
-                                <div className="flex gap-4">
-                                    <button onClick={() => setStep(1)} className="w-1/3 border border-[#333] text-brand-gray hover:text-white py-4">KEMBALI</button>
-                                    <button onClick={() => { if(!formData.name || !formData.address) return alert("Mohon lengkapi data."); setStep(3); }} className="w-2/3 bg-brand-white text-black font-bold hover:bg-brand-purple">LANJUT PEMBAYARAN</button>
-                                </div>
-                            </div>
-                        )}
-
-                        {step === 3 && (
-                            <div className="animate-fade-in">
-                                <div className="flex items-center gap-4 mb-8">
-                                    <VerticalLine className="h-8" />
-                                    <h1 className="text-3xl font-bold font-sans uppercase">Metode Pembayaran</h1>
-                                </div>
-                                <div className="grid grid-cols-1 gap-4 mb-8">
-                                    <button onClick={() => setPaymentMethod('idr')} className={`p-6 border flex flex-col items-center justify-center gap-2 ${paymentMethod === 'idr' ? 'border-brand-green bg-brand-green/10 text-brand-green' : 'border-[#333] text-brand-gray'}`}>
-                                        <QrCode size={24} />
-                                        <span className="font-bold">QRIS / BANK TRANSFER (IDR)</span>
-                                    </button>
-                                </div>
-                                <div className="flex gap-4">
-                                    <button onClick={() => setStep(2)} className="w-1/3 border border-[#333] text-brand-gray hover:text-white py-4">KEMBALI</button>
-                                    <button onClick={handleProcessPayment} disabled={isProcessing} className="w-2/3 bg-brand-purple text-black font-bold flex items-center justify-center gap-2">
-                                        {isProcessing ? <><Loader2 size={18} className="animate-spin"/> MEMPROSES...</> : 'KONFIRMASI PEMBAYARAN'}
-                                    </button>
-                                </div>
-                            </div>
-                        )}
-
-                        {step === 4 && (
-                            <div className="animate-fade-in text-center flex flex-col items-center justify-center py-12">
-                                <div className="w-24 h-24 bg-[#00FF9D]/10 border border-[#00FF9D] rounded-full flex items-center justify-center mb-6"><Check size={48} className="text-[#00FF9D]" /></div>
-                                <h1 className="text-4xl md:text-5xl font-bold mb-4 font-sans text-brand-white">TRANSAKSI BERHASIL</h1>
-                                <p className="text-brand-gray mb-8 font-mono">Invoice dan detail pengiriman telah dikirim ke email Anda.<br/>Selamat datang di ekosistem 0xTanda.</p>
-                                <button onClick={() => { setStep(1); setPage('home'); }} className="px-8 py-3 border border-brand-white text-brand-white hover:bg-brand-white hover:text-black transition-all">KEMBALI KE BERANDA</button>
-                            </div>
-                        )}
+                        {step === 1 && (<div className="animate-fade-in"><h1 className="text-3xl font-bold font-sans uppercase mb-8">Ringkasan Pesanan</h1><div className="space-y-6 mb-8">{cart.map((item, idx) => (<div key={idx} className="flex gap-4 border border-[#333] p-4 bg-[#121212] items-center"><img src={item.imgPhysical} className="w-20 h-20 object-cover" /><div className="flex-1"><h3 className="font-bold text-brand-white">{item.name}</h3><div className="text-brand-purple text-xs">Termasuk Digital Art</div></div><div className="font-bold">Rp {item.priceIDR.toLocaleString()}</div></div>))}</div><div className="flex justify-between items-center border-t border-[#333] pt-6 mb-8"><span className="text-brand-gray">TOTAL</span><div className="text-2xl font-bold text-brand-purple">Rp {totalIDR.toLocaleString()}</div></div><button onClick={() => setStep(2)} className="w-full bg-brand-white text-black py-4 font-bold hover:bg-brand-purple transition-colors tracking-widest">LANJUT PENGIRIMAN</button></div>)}
+                        {step === 2 && (<div className="animate-fade-in"><h1 className="text-3xl font-bold font-sans uppercase mb-8">Data Pengiriman</h1><div className="grid gap-6 mb-8"><div><label className="text-xs text-brand-gray">NAMA PENERIMA</label><input type="text" className="w-full bg-[#121212] border border-[#333] p-3 text-brand-white focus:border-brand-purple outline-none" value={formData.name} onChange={(e) => setFormData({...formData, name: e.target.value})} /></div><div><label className="text-xs text-brand-gray">EMAIL (Untuk Invoice)</label><input type="email" className="w-full bg-[#121212] border border-[#333] p-3 text-brand-white focus:border-brand-purple outline-none" value={formData.email} onChange={(e) => setFormData({...formData, email: e.target.value})} /></div><div><label className="text-xs text-brand-gray">ALAMAT LENGKAP</label><input type="text" className="w-full bg-[#121212] border border-[#333] p-3 text-brand-white focus:border-brand-purple outline-none" value={formData.address} onChange={(e) => setFormData({...formData, address: e.target.value})} /></div></div><div className="flex gap-4"><button onClick={() => setStep(1)} className="w-1/3 border border-[#333] text-brand-gray py-4">KEMBALI</button><button onClick={() => { if(!formData.name || !formData.address) return alert("Lengkapi data!"); setStep(3); }} className="w-2/3 bg-brand-white text-black font-bold hover:bg-brand-purple">LANJUT PEMBAYARAN</button></div></div>)}
+                        {step === 3 && (<div className="animate-fade-in"><h1 className="text-3xl font-bold font-sans uppercase mb-8">Metode Pembayaran</h1><div className="bg-[#121212] border border-brand-purple p-6 mb-8 text-center"><p className="text-brand-gray text-xs mb-4">SILAKAN TRANSFER TOTAL TAGIHAN KE:</p><div className="text-2xl font-bold text-brand-white mb-2">BCA 123-456-7890</div><div className="text-brand-purple font-bold mb-6">a.n 0xTanda Official</div><div className="text-4xl font-bold text-brand-white mb-2 border-t border-dashed border-[#333] pt-6">Rp {totalIDR.toLocaleString()}</div><p className="text-red-500 text-xs animate-pulse">PENTING: Masukkan Berita Transfer "GENESIS BATCH"</p></div><div className="flex gap-4"><button onClick={() => setStep(2)} className="w-1/3 border border-[#333] text-brand-gray py-4">KEMBALI</button><button onClick={handleConfirmPayment} disabled={isProcessing} className="w-2/3 bg-brand-purple text-black font-bold flex items-center justify-center gap-2">{isProcessing ? <><Loader2 size={18} className="animate-spin"/> VERIFIKASI...</> : 'SAYA SUDAH BAYAR'}</button></div></div>)}
+                        {step === 4 && successData && (<div className="animate-fade-in text-center flex flex-col items-center justify-center py-12"><div className="w-24 h-24 bg-[#00FF9D]/10 border border-[#00FF9D] rounded-full flex items-center justify-center mb-6"><Check size={48} className="text-[#00FF9D]" /></div><h1 className="text-4xl font-bold mb-2 font-sans text-brand-white">PEMBAYARAN DITERIMA</h1><p className="text-brand-gray mb-8">Data pesanan Anda telah tersimpan di Database Aman (Secure Ledger).</p><div className="bg-[#121212] border border-brand-green p-6 w-full max-w-md mb-8 relative"><div className="text-xs text-brand-gray mb-2">NOMOR RESI / TRACKING ID</div><div className="text-2xl font-mono font-bold text-brand-green tracking-widest mb-2">{successData.trackingId}</div><button onClick={() => copyToClipboard(successData.trackingId)} className="text-xs text-brand-white underline flex items-center justify-center gap-1 mx-auto"><Copy size={12}/> Salin ID</button></div><button onClick={() => { setStep(1); setPage('home'); }} className="px-8 py-3 border border-brand-white text-brand-white hover:bg-brand-white hover:text-black transition-all">KEMBALI KE BERANDA</button></div>)}
                     </div>
                 </div>
             );
         };
 
-        const VerifyPage = ({ wallet, connectWallet }) => {
-            const [status, setStatus] = useState('idle');
-            const [inputHash, setInputHash] = useState('');
-
-            const handleClaim = () => {
-                if(!inputHash || inputHash.length < 5) {
-                    alert("Harap masukkan kode hash yang valid dari Genesis Card Anda.");
-                    return;
-                }
-                setStatus('verifying'); 
-                setTimeout(() => setStatus('verified'), 3000); 
-            };
-
+        const VerifyPage = () => {
+            const openGoogleForm = () => window.open(GOOGLE_FORM_URL, '_blank');
             return (
                 <div className="min-h-screen bg-brand-black flex flex-col pt-24 items-center justify-center p-6 text-center text-brand-white">
-                    {status === 'idle' && (
-                        <div className="animate-fade-in w-full max-w-md">
-                            <div className="w-24 h-24 border-2 border-[#333] rounded-xl flex items-center justify-center mx-auto mb-8 bg-[#121212] shadow-[0_0_30px_rgba(131,110,249,0.1)]">
-                                <Ticket size={48} className="text-brand-purple" />
-                            </div>
-                            
-                            <h2 className="text-2xl md:text-3xl font-bold mb-2 font-sans tracking-wide">REDEMPTION PORTAL</h2>
-                            <p className="text-brand-gray font-mono text-xs mb-8">Gosok Genesis Card Anda dan masukkan Kode Hash rahasia.</p>
-                            
-                            <div className="relative mb-6 group">
-                                <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                                    <Hash size={16} className="text-brand-gray group-focus-within:text-brand-purple transition-colors" />
-                                </div>
-                                <input 
-                                    type="text" 
-                                    value={inputHash}
-                                    onChange={(e) => setInputHash(e.target.value.toUpperCase())}
-                                    className="w-full bg-[#121212] border border-[#333] py-4 pl-12 pr-4 text-brand-white font-mono text-lg tracking-[0.2em] focus:border-brand-purple outline-none rounded-sm transition-all text-center placeholder-[#333]" 
-                                    placeholder="XXXX-XXXX-XXXX"
-                                    maxLength={16}
-                                />
-                                <div className="absolute bottom-0 left-0 h-[1px] w-0 bg-brand-purple group-focus-within:w-full transition-all duration-500"></div>
-                            </div>
+                    <div className="animate-fade-in w-full max-w-md">
+                        <div className="w-24 h-24 border-2 border-[#333] rounded-xl flex items-center justify-center mx-auto mb-8 bg-[#121212] shadow-[0_0_30px_rgba(131,110,249,0.1)]"><Ticket size={48} className="text-brand-purple" /></div>
+                        <h2 className="text-2xl md:text-3xl font-bold mb-2 font-sans tracking-wide">REDEMPTION PORTAL</h2>
+                        <p className="text-brand-gray font-mono text-xs mb-8">Verifikasi keaslian produk fisik dan klaim aset digital Anda melalui formulir terenkripsi kami.</p>
+                        <div className="bg-[#121212] border border-brand-purple/30 p-6 mb-8 text-left">
+                            <h3 className="text-brand-white font-bold mb-2 flex items-center gap-2"><Shield size={16} className="text-brand-purple"/> PANDUAN VERIFIKASI:</h3>
+                            <ul className="text-xs text-brand-gray space-y-2 list-disc pl-4 font-mono"><li>Siapkan Kartu Fisik "Genesis Access Card" Anda.</li><li>Gosok area pelindung untuk melihat Kode Hash unik.</li><li>Klik tombol di bawah untuk membuka Formulir Klaim.</li><li>Isi data wallet dan upload bukti kepemilikan.</li></ul>
+                        </div>
+                        <button onClick={openGoogleForm} className="w-full bg-brand-white text-black py-4 font-mono font-bold hover:bg-brand-purple hover:text-white transition-all flex items-center justify-center gap-2 group">BUKA FORMULIR VERIFIKASI <ArrowRight size={16} className="group-hover:translate-x-1 transition-transform"/></button>
+                        <p className="mt-4 text-[10px] text-brand-gray">Anda akan diarahkan ke Google Form eksternal yang aman.</p>
+                    </div>
+                </div>
+            );
+        };
 
-                            <button onClick={handleClaim} className="w-full bg-brand-white text-black py-4 font-mono font-bold hover:bg-brand-purple hover:text-white transition-all flex items-center justify-center gap-2 group">
-                                VERIFIKASI KODE <ArrowRight size={16} className="group-hover:translate-x-1 transition-transform"/>
-                            </button>
-                        </div>
-                    )}
-                    
-                    {status === 'verifying' && (
-                        <div className="flex flex-col items-center animate-fade-in">
-                            <div className="relative mb-8">
-                                <div className="w-24 h-24 border-t-2 border-b-2 border-brand-purple rounded-full animate-spin"></div>
-                                <div className="absolute inset-0 flex items-center justify-center">
-                                    <Loader2 size={32} className="text-brand-purple animate-pulse" />
-                                </div>
+        const AboutPage = () => {
+            return (
+                <div className="bg-brand-black text-brand-white pt-28 pb-12">
+                    <div className="max-w-4xl mx-auto px-6 mb-20 text-center">
+                        <div className="flex justify-center mb-8"><img src={ASSETS.logoMain} className="h-24 md:h-32 object-contain" /></div>
+                        <div className="inline-block border border-brand-purple bg-brand-purple/10 px-4 py-1 mb-4"><span className="font-mono text-xs text-brand-purple tracking-widest uppercase">BRAND MANIFESTO // V1.0</span></div>
+                        <h1 className="text-4xl md:text-6xl font-sans font-black tracking-tighter mb-6 uppercase">Mendefinisikan Ulang<br/><span className="text-brand-gray">Kepemilikan.</span></h1>
+                        <p className="text-brand-gray font-mono max-w-2xl mx-auto text-sm leading-relaxed">Kami tidak hanya menjual pakaian. Kami membangun arsip.<br/>Di era di mana karya seni mudah disalin, 0xTanda menghadirkan keaslian yang terverifikasi.</p>
+                    </div>
+
+                    <div className="max-w-5xl mx-auto px-6 grid grid-cols-1 md:grid-cols-12 gap-12 mb-24">
+                        <div className="md:col-span-3 hidden md:block">
+                            <div className="sticky top-32 border-l border-[#333] pl-6 space-y-4">
+                                <a href="#intro" className="block text-sm font-mono text-brand-purple hover:text-white">01. PENDAHULUAN</a>
+                                <a href="#problem" className="block text-sm font-mono text-brand-gray hover:text-white">02. MASALAH</a>
+                                <a href="#solution" className="block text-sm font-mono text-brand-gray hover:text-white">03. TIGA PILAR</a>
+                                <a href="#roadmap-section" className="block text-sm font-mono text-brand-gray hover:text-white">04. PETA JALAN</a>
                             </div>
-                            <div className="font-mono text-brand-purple tracking-widest text-sm animate-pulse">VALIDASI SISTEM...</div>
-                            <div className="font-mono text-[#333] text-xs mt-2">{inputHash}</div>
                         </div>
-                    )}
-                    
-                    {status === 'verified' && (
-                        <div className="animate-fade-in max-w-md w-full border border-brand-purple/30 bg-brand-purple/5 p-8 rounded-2xl relative overflow-hidden">
-                            <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-brand-purple to-transparent"></div>
-                            
-                            <div className="w-20 h-20 bg-[#00FF9D]/10 rounded-full flex items-center justify-center mx-auto mb-6 border border-[#00FF9D]">
-                                <Check size={40} className="text-[#00FF9D]" />
-                            </div>
-                            
-                            <h2 className="text-3xl font-black mb-2 uppercase text-brand-white font-sans">KODE OTENTIK</h2>
-                            <p className="text-brand-gray font-mono text-xs mb-8">Hak kepemilikan aset seni terkait kode ini siap diklaim ke wallet Anda.</p>
-                            
-                            {!wallet ? (
-                                <button onClick={connectWallet} className="w-full bg-brand-purple text-black py-4 font-bold font-mono hover:brightness-110 transition-all flex items-center justify-center gap-2">
-                                    <Wallet size={18} /> HUBUNGKAN WALLET
-                                </button>
-                            ) : (
-                                <div className="space-y-3">
-                                    <div className="text-brand-white font-mono border border-[#00FF9D] p-3 bg-[#00FF9D]/10 text-xs flex items-center justify-center gap-2">
-                                        <Check size={14} /> WALLET TERHUBUNG
-                                    </div>
-                                    <button onClick={() => alert("Klaim Berhasil! Sertifikat Digital telah diterbitkan.")} className="w-full bg-brand-white text-black py-4 font-bold font-mono hover:bg-[#00FF9D] transition-all">
-                                        KLAIM SERTIFIKAT (0 BIAYA)
-                                    </button>
+
+                        <div className="md:col-span-9 space-y-20">
+                            <section id="intro">
+                                <div className="flex items-center gap-3 mb-6"><VerticalLine className="h-8" /><h2 className="text-2xl font-sans font-bold uppercase">Latar Belakang</h2></div>
+                                <p className="text-brand-gray leading-relaxed font-mono text-sm mb-4">Industri mode Indonesia sedang berada di persimpangan jalan. Pasar dibanjiri dengan produk massal yang seragam dan rapuh (fast fashion). Di sisi lain, apresiasi terhadap karya orisinal sering terbentur oleh masalah pembajakan.</p>
+                                <p className="text-brand-gray leading-relaxed font-mono text-sm"><strong>0xTanda</strong> lahir dari kegelisahan ini. Kami percaya bahwa sebuah produk fashion harus memiliki "jiwa"—sebuah tanda otentik yang tidak bisa diduplikasi.</p>
+                            </section>
+
+                            <section id="problem">
+                                <div className="flex items-center gap-3 mb-6"><VerticalLine className="h-8" /><h2 className="text-2xl font-sans font-bold uppercase">Masalah Utama</h2></div>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                    <div className="bg-[#121212] p-6 border border-[#333]"><h3 className="text-brand-white font-bold mb-2 flex items-center gap-2"><Trash2 size={16} className="text-red-500"/> Penurunan Kualitas</h3><p className="text-xs text-brand-gray">Dominasi bahan murah yang tipis membuat pakaian cepat rusak dan kehilangan bentuk. Konsumen kehilangan akses ke pakaian berstruktur kokoh.</p></div>
+                                    <div className="bg-[#121212] p-6 border border-[#333]"><h3 className="text-brand-white font-bold mb-2 flex items-center gap-2"><Shield size={16} className="text-red-500"/> Kepemilikan Semu</h3><p className="text-xs text-brand-gray">Saat Anda membeli pakaian biasa, Anda hanya memiliki kainnya. Anda tidak memiliki bukti otentik atas desain atau hak eksklusif sebagai kolektor.</p></div>
                                 </div>
-                            )}
+                            </section>
+
+                            <section id="solution">
+                                <div className="flex items-center gap-3 mb-6"><VerticalLine className="h-8" /><h2 className="text-2xl font-sans font-bold uppercase">Tiga Pilar 0xTanda</h2></div>
+                                <p className="text-brand-gray leading-relaxed font-mono text-sm mb-8">Kami membangun ekosistem <strong>Phygital (Physical + Digital)</strong> yang seimbang:</p>
+                                <div className="space-y-8">
+                                    <div className="flex gap-6"><div className="hidden md:flex flex-col items-center"><div className="w-10 h-10 border border-brand-purple bg-brand-purple/10 flex items-center justify-center font-bold text-brand-purple">A</div><div className="h-full w-[1px] bg-[#333] my-2"></div></div><div><h3 className="text-xl font-bold text-brand-white mb-2">The Canvas: Eksplorasi Material</h3><p className="text-brand-gray text-sm mb-2">Fokus kami adalah kualitas sandang. Kami tidak terpaku pada satu jenis kain, namun selalu mencari material yang menawarkan <strong>struktur, durabilitas, dan karakter</strong> (Heavyweight 16s).</p></div></div>
+                                    <div className="flex gap-6"><div className="hidden md:flex flex-col items-center"><div className="w-10 h-10 border border-brand-purple bg-brand-purple/10 flex items-center justify-center font-bold text-brand-purple">B</div><div className="h-full w-[1px] bg-[#333] my-2"></div></div><div><h3 className="text-xl font-bold text-brand-white mb-2">The Artifact: Kartu Koleksi Fisik</h3><p className="text-brand-gray text-sm mb-2">Setiap produk disertai kartu fisik eksklusif. Ini bukan sekadar kertas, melainkan "artefak" yang membuktikan Anda adalah pemilik sah dari edisi tersebut.</p></div></div>
+                                    <div className="flex gap-6"><div className="hidden md:flex flex-col items-center"><div className="w-10 h-10 border border-brand-purple bg-brand-purple/10 flex items-center justify-center font-bold text-brand-purple">C</div></div><div><h3 className="text-xl font-bold text-brand-white mb-2">The Rights: Sertifikat Digital</h3><p className="text-brand-gray text-sm mb-2">Kami memanfaatkan teknologi Blockchain untuk menerbitkan sertifikat keaslian yang tidak bisa dipalsukan. Ini memberikan Anda Hak Kepemilikan penuh.</p></div></div>
+                                </div>
+                            </section>
                         </div>
-                    )}
+                    </div>
+                    
+                    <section id="roadmap-section" className="border-t border-[#333] pt-12 mb-20"><RoadmapSlider /></section>
+                    <div className="text-center pt-12 pb-8 border-t border-[#333]"><p className="font-sans text-3xl md:text-4xl text-brand-white mb-4 font-bold tracking-tighter">"ONE ENTITY // DUAL EXISTENCE"</p><p className="font-mono text-xs text-brand-gray">JAKARTA, INDONESIA // EST. 2026</p></div>
                 </div>
             );
         };
@@ -852,32 +469,19 @@
             const [page, setPage] = useState('home');
             const [selectedProduct, setSelectedProduct] = useState(null);
             const [cart, setCart] = useState([]);
-            const [walletConnected, setWalletConnected] = useState(false);
-
-            const addToCart = (product) => {
-                setCart([...cart, product]);
-                setPage('checkout'); 
-            };
-
-            const connectWallet = () => {
-                if(!walletConnected) {
-                    if(window.confirm("Simulasi: Sambungkan Wallet Digital?")) setWalletConnected(true);
-                } else {
-                    setWalletConnected(false);
-                }
-            };
+            const addToCart = (product) => { setCart([...cart, product]); setPage('checkout'); };
 
             return (
                 <div className="bg-brand-black min-h-screen text-brand-white selection:bg-brand-purple selection:text-black font-mono cursor-none">
                     <CustomCursor />
                     <Marquee />
-                    <Navbar setPage={setPage} cartCount={cart.length} wallet={walletConnected} connectWallet={connectWallet} />
+                    <Navbar setPage={setPage} cartCount={cart.length} />
                     <main className="relative z-10 fade-in-up">
                         {page === 'home' && <LandingPage setPage={setPage} />}
                         {page === 'shop' && <ShopPage addToCart={addToCart} setPage={setPage} setSelectedProduct={setSelectedProduct} />}
                         {page === 'product' && <ProductDetail product={selectedProduct} addToCart={addToCart} setPage={setPage} />}
-                        {page === 'checkout' && <CheckoutPage cart={cart} setCart={setCart} setPage={setPage} wallet={walletConnected} connectWallet={connectWallet} />}
-                        {page === 'verify' && <VerifyPage wallet={walletConnected} connectWallet={connectWallet} />}
+                        {page === 'checkout' && <CheckoutPage cart={cart} setCart={setCart} setPage={setPage} />}
+                        {page === 'verify' && <VerifyPage />}
                         {page === 'about' && <AboutPage />}
                     </main>
                 </div>
