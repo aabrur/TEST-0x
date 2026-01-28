@@ -119,28 +119,43 @@
 
   // ===== WALLET CONNECT HELPER =====
   async function connectWallet() {
-    if (!window.ethereum) {
-      alert("Wallet tidak ditemukan. Install MetaMask / Trust / Phantom (EVM).");
-      return null;
-    }
-
-    try {
-      const provider = new ethers.providers.Web3Provider(window.ethereum);
-      await provider.send("eth_requestAccounts", []);
-      const signer = provider.getSigner();
-      const address = await signer.getAddress();
-
-      return {
-        provider,
-        signer,
-        address
-      };
-    } catch (err) {
-      console.error("Wallet connect error:", err);
-      alert("Gagal connect wallet");
-      return null;
-    }
+    async function connectWallet() {
+  if (typeof window.ethereum === "undefined") {
+    alert("Wallet EVM tidak terdeteksi. Install MetaMask / OKX / Rabby.");
+    return null;
   }
+
+  try {
+    // 🔑 PENTING: paksa MetaMask aktif
+    const ethereum = window.ethereum;
+
+    await ethereum.request({
+      method: "eth_requestAccounts"
+    });
+
+    const provider = new ethers.providers.Web3Provider(ethereum, "any");
+    const signer = provider.getSigner();
+    const address = await signer.getAddress();
+
+    console.log("Wallet connected:", address);
+
+    return {
+      provider,
+      signer,
+      address
+    };
+  } catch (err) {
+    console.error("Wallet connect error:", err);
+
+    if (err.code === 4001) {
+      alert("Koneksi wallet dibatalkan user.");
+    } else {
+      alert("Gagal connect wallet. Lihat console.");
+    }
+
+    return null;
+  }
+}
 
   // --- KONFIGURASI LINK ---
   const GOOGLE_FORM_URL = "https://docs.google.com/forms/d/e/1FAIpQLSd.../viewform"; // Ganti dengan URL Google Form Asli
