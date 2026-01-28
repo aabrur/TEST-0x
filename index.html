@@ -14,6 +14,7 @@
 
     <!-- Babel Standalone -->
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
 
     <!-- Firebase SDK (Modular) -->
     <script type="module">
@@ -115,6 +116,30 @@
 
     <script type="text/babel">
         const { useState, useEffect, useRef } = React;
+        // ===== WALLET CONNECT HELPER =====
+        async function connectWallet() {
+        if (!window.ethereum) {
+            alert("Wallet tidak ditemukan. Install MetaMask / Trust / Phantom (EVM).");
+            return null;
+        }
+
+        try {
+            const provider = new ethers.providers.Web3Provider(window.ethereum);
+            await provider.send("eth_requestAccounts", []);
+            const signer = provider.getSigner();
+            const address = await signer.getAddress();
+
+            return {
+            provider,
+            signer,
+            address
+            };
+        } catch (err) {
+            console.error("Wallet connect error:", err);
+            alert("Gagal connect wallet");
+            return null;
+        }
+        }
 
         // --- KONFIGURASI LINK ---
         const GOOGLE_FORM_URL = "https://docs.google.com/forms/d/e/1FAIpQLSd.../viewform"; // Ganti dengan URL Google Form Asli
@@ -190,6 +215,13 @@
         );
 
         const Navbar = ({ setPage, cartCount }) => {
+            const [walletAddress, setWalletAddress] = useState(null);
+
+            const handleConnect = async () => {
+                const addr = await connectWallet();
+                if (addr) setWalletAddress(addr);
+            };
+
             const [menuOpen, setMenuOpen] = useState(false);
             return (
                 <nav className="fixed top-8 left-0 w-full z-40 px-6 mix-blend-difference text-brand-white">
@@ -204,6 +236,15 @@
                             <button onClick={() => setPage('about')} className="hover:text-brand-purple hover:underline decoration-brand-purple underline-offset-4 tracking-wider">TENTANG KAMI</button>
                         </div>
                         <div className="flex items-center gap-6">
+                            <button
+                                onClick={handleConnect}
+                                className="border border-brand-purple px-4 py-2 text-xs font-mono hover:bg-brand-purple hover:text-black transition-all"
+                            >
+                                {walletAddress
+                                  ? walletAddress.slice(0, 6) + "..." + walletAddress.slice(-4)
+                                  : "CONNECT WALLET"}
+                            </button>
+
                             <div className="relative cursor-pointer hover:text-brand-purple" onClick={() => setPage('checkout')}>
                                 <ShoppingBag size={20} />
                                 {cartCount > 0 && <span className="absolute -top-2 -right-2 bg-brand-purple text-black text-[10px] w-4 h-4 flex items-center justify-center font-bold rounded-sm">{cartCount}</span>}
@@ -469,7 +510,9 @@
             const [page, setPage] = useState('home');
             const [selectedProduct, setSelectedProduct] = useState(null);
             const [cart, setCart] = useState([]);
-            const addToCart = (product) => { setCart([...cart, product]); setPage('checkout'); };
+
+            // 🔑 WALLET STATE
+            const [wallet, setWallet] = useState(null);
 
             return (
                 <div className="bg-brand-black min-h-screen text-brand-white selection:bg-brand-purple selection:text-black font-mono cursor-none">
